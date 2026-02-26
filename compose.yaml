@@ -1,0 +1,15 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ghcr.io/xpotato1024/repo-audit:local
+    container_name: repo-audit-api
+    environment:
+      PORT: "8080"
+      SCAN_BASE_ROOT: /scan
+    volumes:
+      - ./:/scan:ro
+    ports:
+      - "8080:8080"
+    restart: unless-stopped

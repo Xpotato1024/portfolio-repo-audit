@@ -1,6 +1,10 @@
 # repo-audit
 
-`repo-audit` is a portfolio-ready Python CLI app that analyzes a source repository and produces a security and structure report.
+`repo-audit` analyzes source repositories and reports structure and secret-leak risk.
+It now provides:
+
+- Python CLI (`python3 -m repo_audit`)
+- Go HTTP API (`cmd/api`)
 
 ## Features
 
@@ -10,11 +14,31 @@
 - JSON and Markdown report export
 - No third-party dependencies (Python standard library only)
 
+## Run API with Docker
+
+```bash
+docker compose up -d --build
+curl -fsS http://127.0.0.1:8080/healthz
+```
+
+Create scan job:
+
+```bash
+curl -fsS -X POST http://127.0.0.1:8080/api/v1/scans \
+  -H 'Content-Type: application/json' \
+  -d '{"path":".","top_large_files":5}'
+```
+
+Get scan result:
+
+```bash
+curl -fsS http://127.0.0.1:8080/api/v1/scans/<job_id>
+```
+
 ## Run
 
 ```bash
-cd /workspace/Home-Servers/portfolio-repo-audit
-python3 -m repo_audit /workspace/Home-Servers --json out/report.json --md out/report.md
+python3 -m repo_audit . --json out/report.json --md out/report.md
 ```
 
 Or quick scan of current directory:
@@ -34,6 +58,5 @@ python3 -m repo_audit .
 ## Test
 
 ```bash
-cd /workspace/Home-Servers/portfolio-repo-audit
 python3 -m unittest discover -s tests -v
 ```
