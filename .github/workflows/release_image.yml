@@ -2,6 +2,11 @@ name: release_image
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "手動実行時のイメージタグ（未指定なら manual-<sha7>）"
+        required: false
+        default: ""
   push:
     tags:
       - 'v*'
@@ -10,8 +15,13 @@ permissions:
   contents: read
   packages: write
 
+concurrency:
+  group: repo-audit-release-image-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   publish:
+    if: ${{ github.actor != 'github-actions[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,11 +31,30 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push image
+      - name: Resolve image tag
+        id: meta
+        shell: bash
         env:
           IMAGE_REPO: ${{ github.repository }}
-          TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'manual' }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
         run: |
-          IMAGE=$(printf "%s" "${IMAGE_REPO}" | tr "[:upper:]" "[:lower:]")
-          docker build -t "ghcr.io/${IMAGE}:${TAG}" .
-          docker push "ghcr.io/${IMAGE}:${TAG}"
+          set -euo pipefail
+          IMAGE="$(printf "%s" "${IMAGE_REPO}" | tr "[:upper:]" "[:lower:]")"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            TAG="${GITHUB_REF_NAME}"
+          elif [ -n "${INPUT_TAG}" ]; then
+            TAG="${INPUT_TAG}"
+          else
+            TAG="manual-${GITHUB_SHA::7}"
+          fi
+          echo "image=ghcr.io/${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Resolved image: ghcr.io/${IMAGE}:${TAG}"
+      - name: Build and push image
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="${{ steps.meta.outputs.image }}"
+          TAG="${{ steps.meta.outputs.tag }}"
+          docker build -t "${IMAGE}:${TAG}" .
+          docker push "${IMAGE}:${TAG}"
